@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Print Studio</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#e8e8e8;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+.toolbar{background:#2c2c2c;color:#fff;padding:5px 10px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex-shrink:0;z-index:100}
+.tb-sep{width:1px;height:22px;background:#555;margin:0 4px;flex-shrink:0}
+.tb-label{font-size:11px;color:#aaa;white-space:nowrap}
+.tb-select,.tb-input{font-size:12px;padding:3px 5px;border:1px solid #555;border-radius:4px;background:#3c3c3c;color:#fff;height:26px;cursor:pointer}
+.tb-input{width:56px}
+.tb-input:focus,.tb-select:focus{outline:1px solid #4a9eff;border-color:#4a9eff}
+.tb-btn{font-size:12px;padding:3px 9px;border:1px solid #555;border-radius:4px;background:#3c3c3c;color:#fff;cursor:pointer;height:26px;display:flex;align-items:center;gap:4px;white-space:nowrap;user-select:none}
+.tb-btn:hover{background:#4c4c4c}
+.tb-btn:active{background:#555;transform:scale(0.97)}
+.tb-btn.primary{background:#1565c0;border-color:#1976d2}
+.tb-btn.primary:hover{background:#1976d2}
+.tb-btn.danger{background:#b71c1c;border-color:#c62828}
+.tb-btn.danger:hover{background:#c62828}
+.tb-btn.green{background:#1b5e20;border-color:#2e7d32}
+.tb-btn.green:hover{background:#2e7d32}
+.tb-btn:disabled{opacity:0.4;cursor:not-allowed;pointer-events:none}
+
+#borderPanel{display:none;align-items:center;gap:5px;padding:4px 10px;background:#252525;border-top:1px solid #444;flex-shrink:0;flex-wrap:wrap}
+#borderPanel.visible{display:flex}
+.bp-label{font-size:11px;color:#aaa;white-space:nowrap}
+.border-swatch{display:inline-flex;align-items:center;justify-content:center;width:76px;height:24px;border-radius:4px;border:1px solid #555;background:#3c3c3c;cursor:pointer;gap:5px;padding:0 5px}
+.border-swatch:hover{background:#4c4c4c;border-color:#888}
+.border-swatch.active{border-color:#4a9eff;background:#1a3a5c}
+.border-swatch span.bline{background:#fff;border-radius:1px;display:block;width:34px}
+.bp-label-sm{font-size:10px;color:#aaa}
+.border-color-btn{width:26px;height:26px;border-radius:4px;border:2px solid #666;cursor:pointer;padding:0}
+
+.statusbar{background:#1e1e1e;color:#aaa;font-size:11px;padding:3px 12px;flex-shrink:0;display:flex;gap:16px;flex-wrap:wrap}
+
+.workspace{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:24px;background:#c8c8c8;position:relative;user-select:none}
+
+#page{background:#fff;position:relative;box-shadow:0 4px 24px rgba(0,0,0,0.35);cursor:default;flex-shrink:0}
+#page.placing{cursor:crosshair}
+
+#rubberBand{display:none;position:absolute;border:1.5px dashed #4a9eff;background:rgba(74,158,255,0.08);pointer-events:none;z-index:999}
+
+.upload-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#bbb;pointer-events:none;white-space:nowrap}
+.upload-hint svg{display:block;margin:0 auto 8px;opacity:0.4}
+.upload-hint p{font-size:13px}
+
+.photo-item{position:absolute;cursor:move;box-sizing:border-box}
+.photo-item:hover .ph-border{outline:2px solid #4a9eff}
+.photo-item.selected .ph-border{outline:2px solid #1565c0}
+.ph-border{position:relative;width:100%;height:100%;overflow:hidden}
+.photo-item img{width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none}
+.resize-handle{position:absolute;width:10px;height:10px;background:#1565c0;border:2px solid #fff;border-radius:2px;bottom:-5px;right:-5px;cursor:se-resize;z-index:20}
+.del-btn{position:absolute;top:-12px;right:-12px;width:20px;height:20px;background:#d32f2f;color:#fff;border:none;border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:20;line-height:1;font-weight:bold}
+.del-btn:hover{background:#f44336}
+
+/* CROP MODAL */
+#cropModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10000;flex-direction:column;align-items:center;justify-content:center}
+#cropModal.open{display:flex}
+#cropModal h2{color:#fff;font-size:15px;margin-bottom:10px;font-weight:500}
+#cropModal p{color:#aaa;font-size:12px;margin-bottom:12px;text-align:center}
+#cropCanvas{border:2px solid #4a9eff;cursor:move;max-width:90vw;max-height:65vh;display:block}
+.crop-toolbar{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center}
+.crop-btn{font-size:13px;padding:5px 16px;border-radius:5px;border:none;cursor:pointer;font-weight:500}
+.crop-btn.ok{background:#1565c0;color:#fff}
+.crop-btn.ok:hover{background:#1976d2}
+.crop-btn.cancel{background:#444;color:#fff}
+.crop-btn.cancel:hover{background:#555}
+.crop-hint{color:#888;font-size:11px;margin-top:6px;text-align:center}
+
+/* SPLASH SCREEN */
+#splash{
+  position:fixed;inset:0;background:#0a0a0a;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:99999;transition:opacity 0.8s ease;
+}
+#splash.fade-out{opacity:0;pointer-events:none;}
+#splash.hidden{display:none;}
+#splash-logo{
+  width:360px;height:360px;border-radius:20px;
+  object-fit:contain;
+  animation:splashPulse 1.5s ease-in-out infinite alternate;
+  box-shadow:0 0 60px rgba(212,175,55,0.25);
+}
+@keyframes splashPulse{
+  from{transform:scale(0.97);box-shadow:0 0 40px rgba(212,175,55,0.2);}
+  to{transform:scale(1.03);box-shadow:0 0 80px rgba(212,175,55,0.45);}
+}
+#splash-name{
+  margin-top:28px;
+  font-family:'Segoe UI',Arial,sans-serif;
+  font-size:13px;
+  color:#888;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+#splash-name span{
+  color:#c8a830;
+  font-weight:600;
+  font-size:15px;
+  letter-spacing:2px;
+}
+#splash-bar-wrap{
+  margin-top:32px;
+  width:200px;height:3px;
+  background:#1e1e1e;border-radius:2px;overflow:hidden;
+}
+#splash-bar{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,#c8a830,#fff8dc,#c8a830);
+  border-radius:2px;
+  transition:width 5s linear;
+}
+
+</style>
+</head>
+<body>
+
+
+<!-- SPLASH SCREEN -->
+<div id="splash">
+  <img id="splash-logo" src="logo.png" alt="AlphaTech Photo Studio">
+  <div id="splash-name">Developed by &nbsp;<span>Md Ehtesham</span></div>
+  <div id="splash-bar-wrap"><div id="splash-bar"></div></div>
+</div>
+
+<div class="toolbar">
+  <span class="tb-label">Page:</span>
+  <select class="tb-select" id="pageSizePreset" style="width:138px" onchange="onPagePreset()">
+    <option value="">Custom</option>
+    <option value="152.4,101.6" selected>4×6 in (photo)</option>
+    <option value="127,177.8">5×7 in</option>
+    <option value="152.4,203.2">6×8 in</option>
+    <option value="203.2,254">8×10 in</option>
+    <option value="210,297">A4</option>
+    <option value="148,210">A5</option>
+    <option value="216,279">Letter</option>
+  </select>
+  <span class="tb-label">W:</span>
+  <input class="tb-input" type="number" id="pgW" value="152.4" min="10" max="1000" step="0.1">
+  <span class="tb-label">H:</span>
+  <input class="tb-input" type="number" id="pgH" value="101.6" min="10" max="1000" step="0.1">
+  <select class="tb-select" id="pgUnit" style="width:50px" onchange="onUnitChange()">
+    <option value="mm" selected>mm</option>
+    <option value="cm">cm</option>
+    <option value="in">in</option>
+    <option value="px">px</option>
+  </select>
+  <button class="tb-btn" onclick="applyPageSize()">✓ Apply</button>
+  <select class="tb-select" id="orientSel" style="width:106px" onchange="setOrientation(this.value)">
+    <option value="landscape" selected>▭ Landscape</option>
+    <option value="portrait">▯ Portrait</option>
+  </select>
+  <div class="tb-sep"></div>
+
+  <span class="tb-label">Zoom:</span>
+  <select class="tb-select" id="zoomSel" onchange="setZoom(+this.value)" style="width:66px">
+    <option value="0.5">50%</option>
+    <option value="0.75">75%</option>
+    <option value="1" selected>100%</option>
+    <option value="1.5">150%</option>
+    <option value="2">200%</option>
+    <option value="2.5">250%</option>
+  </select>
+  <div class="tb-sep"></div>
+
+  <input type="file" id="fileIn" accept="image/*" multiple style="display:none" onchange="handleUpload(this)">
+  <button class="tb-btn primary" onclick="document.getElementById('fileIn').click()">⬆ Upload Photo</button>
+  <div class="tb-sep"></div>
+
+  <span class="tb-label">Photo size:</span>
+  <select class="tb-select" id="photoSizeSel" style="width:168px" onchange="liveResize()">
+    <option value="">— select size —</option>
+    <optgroup label="Standard sizes">
+      <option value="35,45">Passport (35×45 mm)</option>
+      <option value="20,25">Stamp (20×25 mm)</option>
+      <option value="25,32">ID Card (25×32 mm)</option>
+      <option value="50.8,76.2">Wallet (2×3 in)</option>
+      <option value="25.4,30.48">Mini Passport (1×1.2 in)</option>
+    </optgroup>
+    <optgroup label="Visa / Country specific">
+      <option value="35,45">India Passport (35×45 mm)</option>
+      <option value="51,51">US Visa (51×51 mm)</option>
+      <option value="35,45">UK Visa (35×45 mm)</option>
+      <option value="40,60">Japan Visa (40×60 mm)</option>
+    </optgroup>
+    <optgroup label="Print sizes">
+      <option value="101.6,152.4">4×6 in</option>
+      <option value="127,177.8">5×7 in</option>
+      <option value="152.4,203.2">6×8 in</option>
+      <option value="203.2,254">8×10 in</option>
+    </optgroup>
+  </select>
+  <div class="tb-sep"></div>
+
+  <span class="tb-label">Copies:</span>
+  <select class="tb-select" id="copiesSel" style="width:80px" onchange="onCopiesChange()">
+    <option value="0">None</option>
+    <option value="2">2</option>
+    <option value="4">4</option>
+    <option value="6">6</option>
+    <option value="8">8</option>
+    <option value="10">10</option>
+    <option value="12">12</option>
+    <option value="14">14</option>
+    <option value="16">16</option>
+    <option value="18">18</option>
+    <option value="20">20</option>
+  </select>
+  <div class="tb-sep"></div>
+
+  <button class="tb-btn" id="dupBtn" onclick="duplicateSelected()" disabled title="Ctrl+D">⧉ Duplicate</button>
+  <button class="tb-btn" id="delSelBtn" onclick="deleteSelected()" disabled>✕ Delete</button>
+  <button class="tb-btn" id="undoBtn" onclick="undo()" disabled title="Ctrl+Z">↩ Undo</button>
+  <button class="tb-btn" id="redoBtn" onclick="redo()" disabled title="Ctrl+Y">↪ Redo</button>
+  <button class="tb-btn danger" onclick="clearAll()">🗑 Clear All</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn primary" onclick="printPage()">🖨 Print</button>
+</div>
+
+<!-- BORDER PANEL -->
+<div id="borderPanel">
+  <span class="bp-label">Picture Border:</span>
+  <div class="border-swatch active" id="bw-none" onclick="setBorderWeight(0)" title="No border">
+    <span class="bline" style="height:0;border-top:1px dashed #555"></span><span class="bp-label-sm">None</span>
+  </div>
+  <div class="border-swatch" id="bw-0.25" onclick="setBorderWeight(0.25)">
+    <span class="bline" style="height:0.5px"></span><span class="bp-label-sm">¼ pt</span>
+  </div>
+  <div class="border-swatch" id="bw-0.5" onclick="setBorderWeight(0.5)">
+    <span class="bline" style="height:1px"></span><span class="bp-label-sm">½ pt</span>
+  </div>
+  <div class="border-swatch" id="bw-0.75" onclick="setBorderWeight(0.75)">
+    <span class="bline" style="height:1.5px"></span><span class="bp-label-sm">¾ pt</span>
+  </div>
+  <div class="border-swatch" id="bw-1" onclick="setBorderWeight(1)">
+    <span class="bline" style="height:2px"></span><span class="bp-label-sm">1 pt</span>
+  </div>
+  <div class="border-swatch" id="bw-1.5" onclick="setBorderWeight(1.5)">
+    <span class="bline" style="height:3px"></span><span class="bp-label-sm">1½ pt</span>
+  </div>
+  <div class="border-swatch" id="bw-2.25" onclick="setBorderWeight(2.25)">
+    <span class="bline" style="height:4.5px"></span><span class="bp-label-sm">2¼ pt</span>
+  </div>
+  <div class="border-swatch" id="bw-3" onclick="setBorderWeight(3)">
+    <span class="bline" style="height:6px"></span><span class="bp-label-sm">3 pt</span>
+  </div>
+  <div class="border-swatch" id="bw-4.5" onclick="setBorderWeight(4.5)">
+    <span class="bline" style="height:9px"></span><span class="bp-label-sm">4½ pt</span>
+  </div>
+  <div class="border-swatch" id="bw-6" onclick="setBorderWeight(6)">
+    <span class="bline" style="height:12px"></span><span class="bp-label-sm">6 pt</span>
+  </div>
+  <div class="tb-sep"></div>
+  <span class="bp-label">Color:</span>
+  <input type="color" class="border-color-btn" id="borderColorPicker" value="#000000" oninput="applyBorderColor(this.value)">
+</div>
+
+<div class="statusbar">
+  <span id="stPage">Page: 152.4 × 101.6 mm</span>
+  <span id="stSel">No photo selected</span>
+  <span id="stCount">Photos: 0</span>
+  <span id="stHint">Upload → click page to place · Shift+Click multi-select · Ctrl+C/V copy-paste · Double-click to crop</span>
+</div>
+
+<div class="workspace" id="workspace" onmousedown="wsBandStart(event)" onclick="wsClick(event)">
+  <div id="page" onclick="pageClick(event)" ondblclick="pageDbClick(event)">
+    <div class="upload-hint" id="hint">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      <p>Upload a photo, then click here to place it</p>
+    </div>
+    <div id="rubberBand"></div>
+  </div>
+</div>
+
+<!-- CROP MODAL -->
+<div id="cropModal">
+  <h2>✂ Crop / Adjust Photo</h2>
+  <p>Drag the image to reposition · Scroll wheel to zoom in/out · Click <b>Apply Crop</b> when done</p>
+  <canvas id="cropCanvas"></canvas>
+  <div class="crop-toolbar">
+    <button class="crop-btn ok" onclick="applyCrop()">✓ Apply Crop</button>
+    <button class="crop-btn cancel" onclick="cancelCrop()">✕ Cancel</button>
+  </div>
+  <div class="crop-hint">The dashed box shows exactly what will be printed at the selected photo size</div>
+</div>
+
+<script>
+const PX_PER_MM = 3.7795275591;
+let zoom = 1;
+let pageW = 152.4, pageH = 101.6;
+let photos = [];
+let selectedIds = new Set();
+let clipboard = [];   // Ctrl+C copies here
+let nextId = 1;
+let activeSrc = null;
+let placingMode = false;
+let undoStack = [], redoStack = [];
+let dragState = null, resizeState = null, dragMoved = false;
+let bandState = null;
+let curBorderW = 0, curBorderColor = '#000000';
+let gridLocked = false;  // true when auto-grid is active
+
+const page = document.getElementById('page');
+const hint = document.getElementById('hint');
+const rubberBand = document.getElementById('rubberBand');
+const borderPanel = document.getElementById('borderPanel');
+
+// ── UNITS ──────────────────────────────────────────────────────────
+function toMM(v,u){v=parseFloat(v)||0;return u==='cm'?v*10:u==='in'?v*25.4:u==='px'?v/PX_PER_MM:v}
+function fromMM(mm,u){return u==='cm'?+(mm/10).toFixed(3):u==='in'?+(mm/25.4).toFixed(4):u==='px'?Math.round(mm*PX_PER_MM):+mm.toFixed(2)}
+function mmToPx(mm){return mm*PX_PER_MM*zoom}
+function pxToMm(px){return px/PX_PER_MM/zoom}
+
+function onUnitChange(){
+  const u=document.getElementById('pgUnit').value;
+  document.getElementById('pgW').value=fromMM(pageW,u);
+  document.getElementById('pgH').value=fromMM(pageH,u);
+}
+function onPagePreset(){
+  const val=document.getElementById('pageSizePreset').value;
+  if(!val)return;
+  [pageW,pageH]=val.split(',').map(Number);
+  const u=document.getElementById('pgUnit').value;
+  document.getElementById('pgW').value=fromMM(pageW,u);
+  document.getElementById('pgH').value=fromMM(pageH,u);
+  renderPage();
+}
+function applyPageSize(){
+  const u=document.getElementById('pgUnit').value;
+  pageW=toMM(document.getElementById('pgW').value,u);
+  pageH=toMM(document.getElementById('pgH').value,u);
+  renderPage();
+  // Rebuild grid if copies mode active
+  const n=parseInt(document.getElementById('copiesSel').value);
+  if(n>0) buildAutoGrid(n);
+}
+function setZoom(z){zoom=z;renderPage();}
+
+// ── AUTO GRID (Number of Copies) ───────────────────────────────────
+function onCopiesChange(){
+  const n = parseInt(document.getElementById('copiesSel').value);
+  const photoSizeSel = document.getElementById('photoSizeSel');
+
+  if(n === 0){
+    // None selected — unlock everything
+    gridLocked = false;
+    photoSizeSel.disabled = false;
+    photoSizeSel.style.opacity = '';
+    updateStatus();
+    return;
+  }
+
+  // Copies selected — disable photo size, lock grid
+  if(!activeSrc && !photos.length){
+    alert('Please upload a photo first, then select number of copies.');
+    document.getElementById('copiesSel').value = '0';
+    return;
+  }
+
+  photoSizeSel.disabled = true;
+  photoSizeSel.style.opacity = '0.4';
+  gridLocked = true;
+  buildAutoGrid(n);
+}
+
+function buildAutoGrid(n){
+  // Determine best cols/rows split based on orientation
+  // Portrait: cols <= rows, Landscape: cols >= rows
+  const isLandscape = pageW >= pageH;
+  let cols, rows;
+
+  // Find factor pair of n that best matches orientation
+  // For each factor pair (c,r) where c*r === n, pick the one
+  // where landscape→ c>=r, portrait→ c<=r, and closest to page aspect ratio
+  let bestCols = 1, bestRows = n, bestScore = Infinity;
+  for(let c = 1; c <= n; c++){
+    if(n % c !== 0) continue;
+    const r = n / c;
+    // score = how well c/r matches page aspect ratio
+    const gridAspect = c / r;
+    const pageAspect = pageW / pageH;
+    // Penalize wrong orientation
+    let score = Math.abs(Math.log(gridAspect) - Math.log(pageAspect));
+    if(isLandscape && c < r) score += 10;
+    if(!isLandscape && c > r) score += 10;
+    if(score < bestScore){ bestScore = score; bestCols = c; bestRows = r; }
+  }
+  cols = bestCols; rows = bestRows;
+
+  // Margin: 3mm around edges, 2mm between photos
+  const edgeMargin = 3;   // mm around page border
+  const gutter = 2;       // mm between photos
+
+  const totalGutterW = gutter * (cols - 1);
+  const totalGutterH = gutter * (rows - 1);
+  const photoW = (pageW - 2 * edgeMargin - totalGutterW) / cols;
+  const photoH = (pageH - 2 * edgeMargin - totalGutterH) / rows;
+
+  // Clear existing photos
+  photos.forEach(p => { const el = document.getElementById('ph-'+p.id); if(el) el.remove(); });
+  photos = []; selectedIds.clear();
+
+  // Get source image — use activeSrc or first existing photo's src
+  const src = activeSrc || (photos.length ? photos[0].src : null);
+  if(!src){ hint.style.display = ''; updateStatus(); return; }
+
+  hint.style.display = 'none';
+
+  for(let r = 0; r < rows; r++){
+    for(let c = 0; c < cols; c++){
+      const x = edgeMargin + c * (photoW + gutter);
+      const y = edgeMargin + r * (photoH + gutter);
+      const p = {id: nextId++, src, x, y, w: photoW, h: photoH,
+                 borderW: curBorderW, borderColor: curBorderColor};
+      photos.push(p);
+      syncEl(p);
+    }
+  }
+
+  updateStatus();
+  updateBtns();
+  document.getElementById('stHint').textContent =
+    `Auto grid: ${cols} col × ${rows} row · ${n} copies · Press Ctrl+A then select border · Ready to Print`;
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────
+function renderPage(){
+  page.style.width=mmToPx(pageW)+'px';
+  page.style.height=mmToPx(pageH)+'px';
+  photos.forEach(p=>syncEl(p));
+  updateStatus();
+}
+
+function syncEl(p){
+  let el=document.getElementById('ph-'+p.id);
+  if(!el){
+    el=document.createElement('div');
+    el.className='photo-item';
+    el.id='ph-'+p.id;
+    el.dataset.id=p.id;
+
+    const bd=document.createElement('div');
+    bd.className='ph-border';
+    bd.id='phb-'+p.id;
+
+    const img=document.createElement('img');
+    img.id='img-'+p.id;
+    img.draggable=false;
+    bd.appendChild(img);
+    el.appendChild(bd);
+
+    const rh=document.createElement('div');
+    rh.className='resize-handle';
+    el.appendChild(rh);
+    rh.addEventListener('mousedown',e=>startResize(e,p.id));
+
+    const db=document.createElement('button');
+    db.className='del-btn';
+    db.textContent='×';
+    db.addEventListener('click',e=>{e.stopPropagation();saveUndo();deleteById(p.id);});
+    el.appendChild(db);
+
+    el.addEventListener('mousedown',e=>startDrag(e,p.id));
+    // Double-click opens crop
+    el.addEventListener('dblclick',e=>{e.stopPropagation();openCrop(p.id);});
+    page.appendChild(el);
+  }
+
+  el.style.left=mmToPx(p.x)+'px';
+  el.style.top=mmToPx(p.y)+'px';
+  el.style.width=mmToPx(p.w)+'px';
+  el.style.height=mmToPx(p.h)+'px';
+
+  // Image src – use cropped canvas data if available, else original
+  const imgEl=document.getElementById('img-'+p.id);
+  if(imgEl) imgEl.src = p.croppedSrc || p.src;
+
+  // User border
+  const bdEl=document.getElementById('phb-'+p.id);
+  if(bdEl){
+    if(p.borderW&&p.borderW>0){
+      const bpx=p.borderW*96/72;
+      bdEl.style.border=`${bpx}px solid ${p.borderColor||'#000'}`;
+    } else {
+      bdEl.style.border='none';
+    }
+  }
+
+  if(selectedIds.has(p.id)) el.classList.add('selected');
+  else el.classList.remove('selected');
+}
+
+function refreshSelection(){
+  photos.forEach(p=>{
+    const el=document.getElementById('ph-'+p.id);
+    if(el){
+      if(selectedIds.has(p.id)) el.classList.add('selected');
+      else el.classList.remove('selected');
+    }
+  });
+  updateBtns();updateStatus();refreshBorderPanel();
+}
+function deselectAll(){selectedIds.clear();refreshSelection();}
+function selectAll(){photos.forEach(p=>selectedIds.add(p.id));refreshSelection();}
+
+// ── BORDER PANEL ───────────────────────────────────────────────────
+function refreshBorderPanel(){
+  if(selectedIds.size===0){borderPanel.classList.remove('visible');return;}
+  borderPanel.classList.add('visible');
+  const first=photos.find(p=>selectedIds.has(p.id));
+  if(first){
+    curBorderW=first.borderW||0;curBorderColor=first.borderColor||'#000000';
+    document.getElementById('borderColorPicker').value=curBorderColor;
+    highlightBorderSwatch(curBorderW);
+  }
+}
+function highlightBorderSwatch(w){
+  document.querySelectorAll('.border-swatch').forEach(s=>s.classList.remove('active'));
+  const key=w===0?'none':String(w);
+  const el=document.getElementById('bw-'+key);
+  if(el)el.classList.add('active');
+}
+function setBorderWeight(w){
+  curBorderW=w;highlightBorderSwatch(w);saveUndo();
+  photos.filter(p=>selectedIds.has(p.id)).forEach(p=>{p.borderW=w;p.borderColor=p.borderColor||curBorderColor;syncEl(p);});
+}
+function applyBorderColor(color){
+  curBorderColor=color;
+  photos.filter(p=>selectedIds.has(p.id)).forEach(p=>{p.borderColor=color;syncEl(p);});
+}
+
+// ── UPLOAD ─────────────────────────────────────────────────────────
+function handleUpload(input){
+  const files=Array.from(input.files);
+  if(!files.length)return;
+  loadFileQueue(files,0);
+  input.value='';
+}
+function loadFileQueue(files,idx){
+  if(idx>=files.length)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    activeSrc=e.target.result;
+    if(idx>0){
+      saveUndo();addPhoto(activeSrc,Math.min(idx*38,pageW-35),0,35,45);
+      loadFileQueue(files,idx+1);
+    } else {
+      placingMode=true;page.classList.add('placing');hint.style.display='none';
+      document.getElementById('stHint').textContent='Click on the page to place photo '+(idx+1)+' of '+files.length;
+      page._afterPlace=()=>loadFileQueue(files,idx+1);
+    }
+  };
+  reader.readAsDataURL(files[idx]);
+}
+
+// ── PLACE ──────────────────────────────────────────────────────────
+function pageClick(e){
+  if(!placingMode||!activeSrc)return;
+  if(e.target.closest('.photo-item'))return;
+  const rect=page.getBoundingClientRect();
+  const x=pxToMm(e.clientX-rect.left);
+  const y=pxToMm(e.clientY-rect.top);
+  saveUndo();addPhoto(activeSrc,x,y,35,45);
+  placingMode=false;page.classList.remove('placing');
+  document.getElementById('stHint').textContent='Shift+Click multi-select · Rubber-band drag · Ctrl+C/V · Double-click to crop';
+  if(page._afterPlace){const cb=page._afterPlace;page._afterPlace=null;cb();}
+}
+function pageDbClick(e){
+  // handled by photo-item dblclick; this fires if clicking page bg in dblclick
+}
+function wsClick(e){if(e.target===document.getElementById('workspace'))deselectAll();}
+
+// ── ADD PHOTO ──────────────────────────────────────────────────────
+function addPhoto(src,x,y,w,h,extraProps){
+  const p={id:nextId++,src,x,y,w,h,borderW:curBorderW,borderColor:curBorderColor,...(extraProps||{})};
+  photos.push(p);syncEl(p);
+  deselectAll();selectedIds.add(p.id);
+  hint.style.display='none';
+  refreshSelection();liveResize();
+}
+
+// ── DELETE ─────────────────────────────────────────────────────────
+function deleteById(id){
+  photos=photos.filter(p=>p.id!==id);
+  const el=document.getElementById('ph-'+id);if(el)el.remove();
+  selectedIds.delete(id);
+  if(!photos.length)hint.style.display='';
+  refreshSelection();updateStatus();
+}
+function deleteSelected(){
+  if(!selectedIds.size)return;
+  saveUndo();[...selectedIds].forEach(id=>deleteById(id));selectedIds.clear();refreshSelection();
+}
+
+// ── DUPLICATE ──────────────────────────────────────────────────────
+function duplicateSelected(){
+  if(!selectedIds.size)return;
+  saveUndo();
+  const toAdd=photos.filter(p=>selectedIds.has(p.id)).map(p=>({
+    src:p.src,croppedSrc:p.croppedSrc,
+    x:Math.min(p.x+p.w+2,pageW-p.w),y:p.y,w:p.w,h:p.h,
+    borderW:p.borderW,borderColor:p.borderColor
+  }));
+  deselectAll();
+  toAdd.forEach(d=>{
+    const np={id:nextId++,...d};
+    photos.push(np);syncEl(np);selectedIds.add(np.id);
+  });
+  hint.style.display='none';refreshSelection();updateStatus();
+}
+
+// ── COPY / PASTE (Ctrl+C / Ctrl+V) ────────────────────────────────
+function copySelected(){
+  if(!selectedIds.size)return;
+  clipboard=photos.filter(p=>selectedIds.has(p.id)).map(p=>({...p}));
+  document.getElementById('stHint').textContent=`${clipboard.length} photo(s) copied — press Ctrl+V to paste`;
+}
+
+function pasteClipboard(){
+  if(!clipboard.length)return;
+  saveUndo();
+  deselectAll();
+  clipboard.forEach(p=>{
+    const np={id:nextId++,src:p.src,croppedSrc:p.croppedSrc,
+      x:Math.min(p.x+p.w+3,pageW-p.w),y:Math.min(p.y+p.h+3,pageH-p.h),
+      w:p.w,h:p.h,borderW:p.borderW,borderColor:p.borderColor};
+    photos.push(np);syncEl(np);selectedIds.add(np.id);
+  });
+  // Update clipboard positions so repeated pastes cascade nicely
+  clipboard=clipboard.map(p=>({...p,x:Math.min(p.x+p.w+3,pageW-p.w),y:Math.min(p.y+p.h+3,pageH-p.h)}));
+  hint.style.display='none';refreshSelection();updateStatus();
+  document.getElementById('stHint').textContent='Pasted — new photos are selected, drag to position · Ctrl+V again to paste another set';
+}
+
+// ── LIVE RESIZE ────────────────────────────────────────────────────
+function liveResize(){
+  if(!selectedIds.size)return;
+  const val=document.getElementById('photoSizeSel').value;
+  if(!val)return;
+  const[w,h]=val.split(',').map(Number);
+  let changed=false;
+  photos.filter(p=>selectedIds.has(p.id)).forEach(p=>{p.w=w;p.h=h;p.croppedSrc=null;syncEl(p);changed=true;});
+  if(changed){saveUndo();updateStatus();}
+}
+
+// ── DRAG ───────────────────────────────────────────────────────────
+function startDrag(e,id){
+  if(e.target.classList.contains('resize-handle'))return;
+  if(e.target.classList.contains('del-btn'))return;
+  e.preventDefault();
+
+  // When grid is locked, only allow shift+click for border selection, no dragging
+  if(gridLocked){
+    if(e.shiftKey){
+      if(selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
+    } else {
+      selectedIds.clear();
+      selectedIds.add(id);
+    }
+    refreshSelection();
+    return;
+  }
+  // DO NOT call e.stopPropagation() — it breaks shift+click
+
+  if(e.shiftKey){
+    // Shift+click: toggle this photo in/out of selection
+    if(selectedIds.has(id)) selectedIds.delete(id);
+    else selectedIds.add(id);
+    refreshSelection();
+    // Don't start drag on shift+click
+    return;
+  }
+
+  // Plain click/drag: if photo not yet selected, select only it
+  // If already selected (possibly in a group), keep the group for dragging
+  if(!selectedIds.has(id)){
+    deselectAll();
+    selectedIds.add(id);
+    refreshSelection();
+  }
+
+  const origins={};
+  photos.filter(p=>selectedIds.has(p.id)).forEach(p=>{origins[p.id]={x:p.x,y:p.y};});
+  dragState={startX:e.clientX,startY:e.clientY,origins,clickId:id};
+  dragMoved=false;
+}
+function startResize(e,id){
+  if(gridLocked) return;  // no resizing in auto-grid mode
+  e.preventDefault();e.stopPropagation();
+  deselectAll();selectedIds.add(id);refreshSelection();
+  const p=photos.find(x=>x.id===id);saveUndo();
+  resizeState={id,startX:e.clientX,startY:e.clientY,origW:p.w,origH:p.h};
+}
+
+document.addEventListener('mousemove',e=>{
+  if(dragState){
+    const dx=pxToMm(e.clientX-dragState.startX),dy=pxToMm(e.clientY-dragState.startY);
+    if(!dragMoved&&(Math.abs(dx)>0.5||Math.abs(dy)>0.5)){saveUndo();dragMoved=true;}
+    photos.filter(p=>selectedIds.has(p.id)&&dragState.origins[p.id]).forEach(p=>{
+      p.x=Math.max(0,dragState.origins[p.id].x+dx);
+      p.y=Math.max(0,dragState.origins[p.id].y+dy);
+      syncEl(p);
+    });
+    updateStatus();
+  }
+  if(resizeState){
+    const dx=pxToMm(e.clientX-resizeState.startX),dy=pxToMm(e.clientY-resizeState.startY);
+    const p=photos.find(x=>x.id===resizeState.id);
+    if(p){p.w=Math.max(5,resizeState.origW+dx);p.h=Math.max(5,resizeState.origH+dy);syncEl(p);updateStatus();}
+  }
+  if(bandState)updateBand(e);
+});
+document.addEventListener('mouseup',e=>{
+  resizeState=null;dragState=null;dragMoved=false;
+  if(bandState){finishBand(e);bandState=null;rubberBand.style.display='none';}
+});
+
+// ── RUBBER BAND ────────────────────────────────────────────────────
+function wsBandStart(e){
+  if(e.target!==page&&e.target!==rubberBand&&e.target!==hint)return;
+  if(placingMode)return;
+  const rect=page.getBoundingClientRect();
+  const x=e.clientX-rect.left,y=e.clientY-rect.top;
+  if(x<0||y<0||x>rect.width||y>rect.height)return;
+  bandState={startX:x,startY:y,rect};
+  rubberBand.style.cssText='display:block;left:'+x+'px;top:'+y+'px;width:0;height:0';
+  if(!e.shiftKey)deselectAll();
+}
+function updateBand(e){
+  const r=bandState.rect;
+  const cx=Math.min(Math.max(e.clientX-r.left,0),r.width);
+  const cy=Math.min(Math.max(e.clientY-r.top,0),r.height);
+  rubberBand.style.left=Math.min(bandState.startX,cx)+'px';
+  rubberBand.style.top=Math.min(bandState.startY,cy)+'px';
+  rubberBand.style.width=Math.abs(cx-bandState.startX)+'px';
+  rubberBand.style.height=Math.abs(cy-bandState.startY)+'px';
+}
+function finishBand(e){
+  const r=bandState.rect;
+  const cx=Math.min(Math.max(e.clientX-r.left,0),r.width);
+  const cy=Math.min(Math.max(e.clientY-r.top,0),r.height);
+  const bx1=Math.min(bandState.startX,cx),by1=Math.min(bandState.startY,cy);
+  const bx2=Math.max(bandState.startX,cx),by2=Math.max(bandState.startY,cy);
+  if(bx2-bx1<4&&by2-by1<4)return;
+  const mx1=pxToMm(bx1),my1=pxToMm(by1),mx2=pxToMm(bx2),my2=pxToMm(by2);
+  photos.forEach(p=>{
+    if(p.x+p.w/2>=mx1&&p.x+p.w/2<=mx2&&p.y+p.h/2>=my1&&p.y+p.h/2<=my2)selectedIds.add(p.id);
+  });
+  refreshSelection();
+}
+
+// ── CLEAR ──────────────────────────────────────────────────────────
+function clearAll(){
+  if(!photos.length)return;
+  if(!confirm('Remove all photos from the page?'))return;
+  saveUndo();
+  photos.forEach(p=>{const el=document.getElementById('ph-'+p.id);if(el)el.remove();});
+  photos=[];selectedIds.clear();
+  // Reset copies dropdown and unlock
+  document.getElementById('copiesSel').value='0';
+  gridLocked=false;
+  document.getElementById('photoSizeSel').disabled=false;
+  document.getElementById('photoSizeSel').style.opacity='';
+  hint.style.display='';refreshSelection();updateStatus();
+}
+
+// ── UNDO / REDO ────────────────────────────────────────────────────
+function clonePhotos(){return photos.map(p=>({...p}));}
+function saveUndo(){
+  undoStack.push(clonePhotos());
+  if(undoStack.length>50)undoStack.shift();
+  redoStack=[];updateBtns();
+}
+function restoreState(state){
+  photos.forEach(p=>{if(!state.find(s=>s.id===p.id)){const el=document.getElementById('ph-'+p.id);if(el)el.remove();}});
+  photos=state.map(p=>({...p}));
+  if(photos.length)nextId=Math.max(...photos.map(p=>p.id))+1;
+  selectedIds.clear();photos.forEach(p=>syncEl(p));
+  hint.style.display=photos.length?'none':'';
+  refreshSelection();updateStatus();
+}
+function undo(){if(!undoStack.length)return;redoStack.push(clonePhotos());restoreState(undoStack.pop());}
+function redo(){if(!redoStack.length)return;undoStack.push(clonePhotos());restoreState(redoStack.pop());}
+
+// ── KEYBOARD ───────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('cropModal').classList.contains('open'))return;
+  const tag=document.activeElement.tagName.toLowerCase();
+  if(tag==='input'||tag==='select'||tag==='textarea')return;
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault();undo();}
+  if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))){e.preventDefault();redo();}
+  if(e.key==='Delete'&&selectedIds.size){saveUndo();deleteSelected();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='d'){e.preventDefault();duplicateSelected();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='a'){e.preventDefault();selectAll();} // always works, even in grid mode
+  if((e.ctrlKey||e.metaKey)&&e.key==='c'){e.preventDefault();copySelected();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='v'){e.preventDefault();pasteClipboard();}
+  if(e.key==='Escape'){deselectAll();}
+});
+
+// ── CROP MODAL ─────────────────────────────────────────────────────
+let cropState = null;
+
+function openCrop(id){
+  const p=photos.find(x=>x.id===id);
+  if(!p)return;
+
+  const modal=document.getElementById('cropModal');
+  const canvas=document.getElementById('cropCanvas');
+  const ctx=canvas.getContext('2d');
+
+  // Target aspect ratio from photo size (w:h in mm)
+  const targetW=p.w, targetH=p.h;
+  const aspect=targetW/targetH;
+
+  // Canvas display size
+  const maxW=Math.min(window.innerWidth*0.85,700);
+  const maxH=Math.min(window.innerHeight*0.60,500);
+  let cW=maxW, cH=maxW/aspect;
+  if(cH>maxH){cH=maxH;cW=maxH*aspect;}
+  canvas.width=Math.round(cW);
+  canvas.height=Math.round(cH);
+  canvas.style.width=canvas.width+'px';
+  canvas.style.height=canvas.height+'px';
+
+  const img=new Image();
+  img.onload=()=>{
+    // Fit image so short side fills the canvas
+    const imgAspect=img.naturalWidth/img.naturalHeight;
+    let iW,iH;
+    if(imgAspect>aspect){
+      // image wider than slot → fit height
+      iH=canvas.height;iW=iH*imgAspect;
+    } else {
+      iW=canvas.width;iH=iW/imgAspect;
+    }
+    // Start position: centred
+    const startOx=(canvas.width-iW)/2;
+    const startOy=(canvas.height-iH)/2;
+
+    cropState={
+      id,img,
+      iW,iH,
+      ox:startOx,oy:startOy, // image offset inside canvas
+      scale:1,
+      canvas,ctx,
+      dragging:false,lastX:0,lastY:0
+    };
+    drawCrop();
+    modal.classList.add('open');
+  };
+  img.src=p.src; // always crop from original
+}
+
+function drawCrop(){
+  const s=cropState;
+  const {canvas,ctx,img,ox,oy,iW,iH}=s;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Checkerboard bg
+  const sz=10;
+  for(let r=0;r<Math.ceil(canvas.height/sz);r++){
+    for(let c=0;c<Math.ceil(canvas.width/sz);c++){
+      ctx.fillStyle=(r+c)%2===0?'#444':'#555';
+      ctx.fillRect(c*sz,r*sz,sz,sz);
+    }
+  }
+  ctx.drawImage(img,ox,oy,iW,iH);
+  // Overlay showing frame
+  ctx.strokeStyle='#4a9eff';
+  ctx.lineWidth=2;
+  ctx.setLineDash([6,3]);
+  ctx.strokeRect(1,1,canvas.width-2,canvas.height-2);
+  ctx.setLineDash([]);
+  // Semi-dark overlay outside crop (here entire canvas IS the crop, so just corner labels)
+  ctx.fillStyle='rgba(74,158,255,0.12)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Redraw image on top of overlay
+  ctx.drawImage(img,ox,oy,iW,iH);
+  // Border again
+  ctx.strokeStyle='#4a9eff';ctx.lineWidth=2;ctx.setLineDash([6,3]);
+  ctx.strokeRect(1,1,canvas.width-2,canvas.height-2);ctx.setLineDash([]);
+}
+
+// Mouse drag to pan image within canvas
+document.getElementById('cropCanvas').addEventListener('mousedown',e=>{
+  if(!cropState)return;
+  cropState.dragging=true;cropState.lastX=e.clientX;cropState.lastY=e.clientY;
+  e.preventDefault();
+});
+document.addEventListener('mousemove',e=>{
+  if(!cropState||!cropState.dragging)return;
+  const dx=e.clientX-cropState.lastX,dy=e.clientY-cropState.lastY;
+  cropState.ox+=dx;cropState.oy+=dy;
+  cropState.lastX=e.clientX;cropState.lastY=e.clientY;
+  clampCrop();drawCrop();
+});
+document.addEventListener('mouseup',()=>{if(cropState)cropState.dragging=false;});
+
+// Scroll to zoom
+document.getElementById('cropCanvas').addEventListener('wheel',e=>{
+  if(!cropState)return;e.preventDefault();
+  const delta=e.deltaY<0?1.08:0.926;
+  const cx=cropState.canvas.width/2,cy=cropState.canvas.height/2;
+  cropState.ox=(cropState.ox-cx)*delta+cx;
+  cropState.oy=(cropState.oy-cy)*delta+cy;
+  cropState.iW*=delta;cropState.iH*=delta;
+  clampCrop();drawCrop();
+},{passive:false});
+
+// Touch support for mobile
+document.getElementById('cropCanvas').addEventListener('touchstart',e=>{
+  if(!cropState||e.touches.length!==1)return;
+  cropState.dragging=true;cropState.lastX=e.touches[0].clientX;cropState.lastY=e.touches[0].clientY;
+  e.preventDefault();},{passive:false});
+document.getElementById('cropCanvas').addEventListener('touchmove',e=>{
+  if(!cropState||!cropState.dragging||e.touches.length!==1)return;
+  const dx=e.touches[0].clientX-cropState.lastX,dy=e.touches[0].clientY-cropState.lastY;
+  cropState.ox+=dx;cropState.oy+=dy;
+  cropState.lastX=e.touches[0].clientX;cropState.lastY=e.touches[0].clientY;
+  clampCrop();drawCrop();e.preventDefault();},{passive:false});
+document.getElementById('cropCanvas').addEventListener('touchend',()=>{if(cropState)cropState.dragging=false;});
+
+function clampCrop(){
+  // Prevent panning so image doesn't fully leave the canvas
+  const s=cropState;
+  const margin=30; // px min overlap
+  s.ox=Math.min(s.ox,s.canvas.width-margin);
+  s.ox=Math.max(s.ox,margin-s.iW);
+  s.oy=Math.min(s.oy,s.canvas.height-margin);
+  s.oy=Math.max(s.oy,margin-s.iH);
+  // Enforce minimum size = fill canvas
+  if(s.iW<s.canvas.width){const sc=s.canvas.width/s.iW;s.iW=s.canvas.width;s.iH*=sc;}
+  if(s.iH<s.canvas.height){const sc=s.canvas.height/s.iH;s.iH=s.canvas.height;s.iW*=sc;}
+}
+
+function applyCrop(){
+  const s=cropState;
+  if(!s)return;
+  // Render the visible crop to an offscreen canvas at high resolution
+  const HI=800; // output resolution height
+  const p=photos.find(x=>x.id===s.id);
+  const aspect=s.canvas.width/s.canvas.height;
+  const outW=Math.round(HI*aspect),outH=HI;
+  const off=document.createElement('canvas');
+  off.width=outW;off.height=outH;
+  const oct=off.getContext('2d');
+  // Scale factor from display to output
+  const scaleX=outW/s.canvas.width,scaleY=outH/s.canvas.height;
+  oct.drawImage(s.img,s.ox*scaleX,s.oy*scaleY,s.iW*scaleX,s.iH*scaleY);
+  const dataURL=off.toDataURL('image/jpeg',0.95);
+  saveUndo();
+  p.croppedSrc=dataURL;
+  syncEl(p);
+  cropState=null;
+  document.getElementById('cropModal').classList.remove('open');
+}
+
+function cancelCrop(){
+  cropState=null;
+  document.getElementById('cropModal').classList.remove('open');
+}
+
+// ── PRINT ──────────────────────────────────────────────────────────
+function printPage(){
+  if(!photos.length){alert('No photos on the page yet!');return;}
+  const items=photos.map(p=>{
+    const bpx=p.borderW?p.borderW*96/72:0;
+    const bstyle=bpx?`border:${bpx}px solid ${p.borderColor||'#000'};`:'';
+    const src=p.croppedSrc||p.src;
+    return `<div style="position:absolute;left:${p.x.toFixed(3)}mm;top:${p.y.toFixed(3)}mm;width:${p.w.toFixed(3)}mm;height:${p.h.toFixed(3)}mm;overflow:hidden;box-sizing:border-box;${bstyle}">
+      <img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  @page{size:${pageW.toFixed(2)}mm ${pageH.toFixed(2)}mm;margin:0}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{width:${pageW.toFixed(2)}mm;height:${pageH.toFixed(2)}mm;overflow:hidden}
+  .page{position:relative;width:${pageW.toFixed(2)}mm;height:${pageH.toFixed(2)}mm;background:#fff;overflow:hidden}
+  img{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+</style></head><body>
+<div class="page">${items}</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script>
+</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){alert('Pop-up blocked! Please allow pop-ups for this page and try again.');return;}
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
+
+// ── STATUS / BTNS ──────────────────────────────────────────────────
+function updateBtns(){
+  const hasSel=selectedIds.size>0;
+  document.getElementById('dupBtn').disabled=!hasSel;
+  document.getElementById('delSelBtn').disabled=!hasSel;
+  document.getElementById('undoBtn').disabled=!undoStack.length;
+  document.getElementById('redoBtn').disabled=!redoStack.length;
+}
+function updateStatus(){
+  const u=document.getElementById('pgUnit').value;
+  document.getElementById('stPage').textContent=`Page: ${fromMM(pageW,u)} × ${fromMM(pageH,u)} ${u}`;
+  document.getElementById('stCount').textContent=`Photos: ${photos.length}`;
+  if(!selectedIds.size){document.getElementById('stSel').textContent='No photo selected';}
+  else if(selectedIds.size===1){
+    const p=photos.find(x=>selectedIds.has(x.id));
+    document.getElementById('stSel').textContent=p?`Selected: ${p.w.toFixed(1)}×${p.h.toFixed(1)} mm`:'';
+  } else {
+    document.getElementById('stSel').textContent=`${selectedIds.size} photos selected`;
+  }
+}
+
+// ── ORIENTATION ────────────────────────────────────────────────────
+function setOrientation(mode){
+  if(mode==='landscape' && pageH > pageW){ const t=pageW; pageW=pageH; pageH=t; }
+  if(mode==='portrait'  && pageW > pageH){ const t=pageW; pageW=pageH; pageH=t; }
+  const u=document.getElementById('pgUnit').value;
+  document.getElementById('pgW').value=fromMM(pageW,u);
+  document.getElementById('pgH').value=fromMM(pageH,u);
+  document.getElementById('orientSel').value = mode;
+  renderPage();
+  // Rebuild grid if copies mode active
+  const n=parseInt(document.getElementById('copiesSel').value);
+  if(n>0) buildAutoGrid(n);
+}
+
+renderPage();updateBtns();updateStatus();
+
+
+// ── SPLASH SCREEN ──────────────────────────────────────────────────
+(function(){
+  // Start progress bar after a tiny delay so transition fires
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      document.getElementById('splash-bar').style.width='100%';
+    });
+  });
+  setTimeout(()=>{
+    const s=document.getElementById('splash');
+    s.classList.add('fade-out');
+    setTimeout(()=>s.classList.add('hidden'),850);
+  },5000);
+})();
+
+</script>
+</body>
+</html>
